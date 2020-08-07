@@ -119,22 +119,30 @@ def facebook(email):
     return({"rateLimit":False,"exists":True,"emailrecovery":emailrecovery,"phoneNumber":phone,"others":{"FullName":full_name,"profilePicture":profile_picture}})
 def instagram(email):
 
-    s = requests.session()
-    s.headers = {
-        'User-Agent': ua.chrome,
-        'Accept': 'application/json, text/plain, */*',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Origin': 'https://www.instagram.com',
-        'DNT': '1',
-        'Connection': 'keep-alive',
-    }
-
     try:
+        s = requests.session()
+        s.headers = {
+            'User-Agent': ua.chrome,
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Origin': 'https://www.instagram.com',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+        }
+
         freq=s.get("https://www.instagram.com/accounts/emailsignup/")
-        token= freq.cookies["csrftoken"]
-        check = s.post("https://www.instagram.com/accounts/web_create_ajax/attempt/",data={"email": email},headers={"x-csrftoken": token}).json()
-        if check["errors"]["email"][0]["code"]=="email_is_taken":
-            return({"rateLimit":False,"exists":True,"emailrecovery":None,"phoneNumber":None,"others":None})
+        token= freq.text.split('{"config":{"csrf_token":"')[1].split('"')[0]
+        data = {
+          'email': email,
+          'username': '',
+          'first_name': '',
+          'opt_into_one_tap': 'false'
+        }
+
+        check = s.post("https://www.instagram.com/accounts/web_create_ajax/attempt/",data=data,headers={"x-csrftoken": token}).json()
+        if 'email' in check["errors"].keys():
+            if check["errors"]["email"][0]["code"]=="email_is_taken":
+                return({"rateLimit":False,"exists":True,"emailrecovery":None,"phoneNumber":None,"others":None})
         else:
             return({"rateLimit":False,"exists":False,"emailrecovery":None,"phoneNumber":None,"others":None})
     except:
@@ -179,20 +187,10 @@ def tumblr(email):
         return({"rateLimit":False,"exists":True,"emailrecovery":None,"phoneNumber":None,"others":None})
     else:
         return({"rateLimit":False,"exists":False,"emailrecovery":None,"phoneNumber":None,"others":None})
-def pastebin(email):
-    req = requests.post("https://pastebin.com/ajax/check_email.php",data={"action": "check_email", "username": email})
-    regex = re.compile(r"^<font color=\"(red|green)\">([^<>]+)<\/font>$")
-    verif = regex.match(req.text)
-    if '<font color="red">' in str(verif):
-        return({"rateLimit":False,"exists":True,"emailrecovery":None,"phoneNumber":None,"others":None})
-    if '<font color="green">' in str(verif):
-        return({"rateLimit":False,"exists":False,"emailrecovery":None,"phoneNumber":None,"others":None})
-    else:
-        return({"rateLimit":True,"exists":None,"emailrecovery":None,"phoneNumber":None,"others":None})
 def github(email):
     s = requests.session()
     freq = s.get("https://github.com/join")
-    token_regex = re.compile(r'<auto-check src="/signup_check/username[\s\S]*value="([\S]*)"[\s\S]*<auto-check src="/signup_check/email[\s\S]*value="([\S]*)"[\s\S]*</auto-check>')
+    token_regex = re.compile(r'<auto-check src="/signup_check/username[\s\S]*?value="([\S]+)"[\s\S]*<auto-check src="/signup_check/email[\s\S]*?value="([\S]+)"')
     token = re.findall(token_regex,freq.text)
     data={"value": email, "authenticity_token": token[0]}
     #print(data)
@@ -366,6 +364,50 @@ def evernote(email):
     if "usePasswordAuth" in response.text:
         return({"rateLimit":False,"exists":True,"emailrecovery":None,"phoneNumber":None,"others":None})
     elif "displayMessage" in response.text:
+        return({"rateLimit":False,"exists":False,"emailrecovery":None,"phoneNumber":None,"others":None})
+    else:
+        return({"rateLimit":True,"exists":False,"emailrecovery":None,"phoneNumber":None,"others":None})
+def amazon(email):
+    brows = Browser()
+    brows.set_handle_robots(False)
+    brows._factory.is_html = True
+    brows.set_cookiejar(cookielib.LWPCookieJar())
+    brows.addheaders = [('User-agent',ua.chrome)]
+    brows.set_handle_refresh(mechanize._http.HTTPRefreshProcessor(),max_time=1)
+    url = "https://www.amazon.com/ap/signin?openid.pape.max_auth_age=0&openid.return_to=https%3A%2F%2Fwww.amazon.com%2F%3F_encoding%3DUTF8%26ref_%3Dnav_ya_signin&openid.identity=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.assoc_handle=usflex&openid.mode=checkid_setup&openid.claimed_id=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0&"
+    brows.open(url, timeout=10)
+    brows.select_form(nr=0)
+    brows.form['email'] = email
+
+    brows.method = "POST"
+    submit = brows.submit()
+    soup = BeautifulSoup(submit.read().decode("utf-8"),"lxml")
+    if soup.find("div", {"id": "auth-password-missing-alert"}):
+        return({"rateLimit":False,"exists":True,"emailrecovery":None,"phoneNumber":None,"others":None})
+    else:
+        return({"rateLimit":False,"exists":False,"emailrecovery":None,"phoneNumber":None,"others":None})
+def lastpass(email):
+    headers = {
+        'User-Agent': ua.firefox,
+        'Accept': '*/*',
+        'Accept-Language': 'en,en-US;q=0.5',
+        'Referer': 'https://lastpass.com/',
+        'X-Requested-With': 'XMLHttpRequest',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+        'TE': 'Trailers',
+    }
+    params = (
+        ('check', 'avail'),
+        ('skipcontent', '1'),
+        ('mistype', '1'),
+        ('username', email),
+    )
+
+    response = requests.get('https://lastpass.com/create_account.php', params=params,headers=headers)
+    if response.text=="no":
+        return({"rateLimit":False,"exists":True,"emailrecovery":None,"phoneNumber":None,"others":None})
+    if response.text=="ok" or response.text=="emailinvalid":
         return({"rateLimit":False,"exists":False,"emailrecovery":None,"phoneNumber":None,"others":None})
     else:
         return({"rateLimit":True,"exists":False,"emailrecovery":None,"phoneNumber":None,"others":None})
