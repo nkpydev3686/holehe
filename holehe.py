@@ -5,12 +5,12 @@ from termcolor import colored
 parser = argparse.ArgumentParser()
 parser.add_argument("-e", "--email", help="Email of the target")
 args = parser.parse_args()
-websites=[adobe,ebay,facebook,instagram,tumblr,pastebin,github,twitter,pinterest,lastfm,spotify,firefox,office365,live,evernote]
+websites=[adobe,amazon,ebay,evernote,facebook,firefox,github,instagram,lastfm,lastpass,live,office365,pinterest,spotify,tumblr,twitter]
 
 infos =[]
 description = colored("Email used","green")+","+colored(" Email not used","magenta")+","+colored(" Rate limit","red")+"\n"
 for website in tqdm(websites):
-    infos.append({str(website).split(" ")[1].split(" ")[0]:website(args.email)})
+    infos.append({website.__name__:website(args.email)})
 print("\033[H\033[J")
 print("*"*25)
 print(args.email)
