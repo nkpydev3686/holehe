@@ -37,4 +37,3 @@ for i in infos:
     print(websiteprint)
 
 print("\n"+description)
-,
