@@ -29,8 +29,10 @@ print(adobe("test@gmail.com"))
 print(apple("test@gmail.com"))
 ```
 ## Lists of modules:
+- aboutme
 - adobe
 - amazon
+- discord
 - ebay
 - evernote
 - facebook
