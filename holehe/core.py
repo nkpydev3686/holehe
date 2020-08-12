@@ -1,4 +1,4 @@
-import requests,re,mechanize,json
+import requests,re,mechanize,json,random,string
 from bs4 import BeautifulSoup
 from mechanize import Browser
 try:
@@ -410,4 +410,65 @@ def lastpass(email):
     if response.text=="ok" or response.text=="emailinvalid":
         return({"rateLimit":False,"exists":False,"emailrecovery":None,"phoneNumber":None,"others":None})
     else:
+        return({"rateLimit":True,"exists":False,"emailrecovery":None,"phoneNumber":None,"others":None})
+def aboutme(email):
+
+    s = requests.session()
+    reqToken = s.get("https://about.me/signup",headers={'User-Agent': ua.firefox}).text.split(',"AUTH_TOKEN":"')[1].split('"')[0]
+
+    headers = {
+        'User-Agent': ua.firefox,
+        'Accept': 'application/json, text/javascript, */*; q=0.01',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'X-Auth-Token': reqToken,
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'Origin': 'https://about.me',
+        'Connection': 'keep-alive',
+        'TE': 'Trailers',
+    }
+
+    data = '{"user_name":"","first_name":"","last_name":"","allowed_features":[],"counters":{"id":"counters"},"settings":{"id":"settings","compliments":{"id":"compliments"},"follow":{"id":"follow"},"share":{"id":"share"}},"email_address":"'+email+'","honeypot":"","actions":{"id":"actions"},"apps":[],"contact":{"id":"contact"},"contact_me":{"id":"contact_me"},"email_channels":{"id":"email_channels"},"flags":{"id":"flags"},"images":[],"interests":[],"jobs":[],"layout":{"version":1,"id":"layout","color":"305B90"},"links":[],"locations":[],"mapped_domains":[],"portfolio":[],"roles":[],"schools":[],"slack_teams":[],"spotlight":{"type":null,"text":null,"url":null,"id":"spotlight"},"spotlight_trial":{"type":null,"text":null,"url":null,"id":"spotlight_trial"},"store":{"id":"store","credit_card":{"number":"","exp_month":"","exp_year":"","cvc":"","address_zip":"","last4":"","id":"credit_card"},"charges":[],"purchases":[]},"tags":[],"testimonials":{"header":"0","id":"testimonials","items":[]},"video":{"id":"video"},"signup":{"id":"signup","step":"email","method":"email"}}'
+
+    response = s.post('https://about.me/n/signup', headers=headers, data=data)
+    if response.status_code==409:
+            return({"rateLimit":False,"exists":True,"emailrecovery":None,"phoneNumber":None,"others":None})
+    elif response.status_code==200:
+            return({"rateLimit":False,"exists":False,"emailrecovery":None,"phoneNumber":None,"others":None})
+    else:
+        return({"rateLimit":True,"exists":False,"emailrecovery":None,"phoneNumber":None,"others":None})
+def discord(email):
+    def get_random_string(length):
+        letters = string.ascii_lowercase
+        result_str = ''.join(random.choice(letters) for i in range(length))
+        return(result_str)
+
+    headers = {
+        'User-Agent': ua.firefox,
+        'Accept': '*/*',
+        'Accept-Language': 'en-US',
+        'Content-Type': 'application/json',
+        'Origin': 'https://discord.com',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+        'TE': 'Trailers',
+    }
+
+    data = '{"fingerprint":"","email":"'+email+'","username":"'+get_random_string(20)+'","password":"'+get_random_string(20)+'","invite":null,"consent":true,"date_of_birth":"","gift_code_sku_id":null,"captcha_key":null}'
+
+    response = requests.post('https://discord.com/api/v8/auth/register', headers=headers, data=data)
+    responseData=response.json()
+    try:
+        if "code" in responseData.keys():
+            if str(responseData["code"])=="50035":
+                try:
+                    if responseData["errors"]["email"]["_errors"][0]['code']=="EMAIL_ALREADY_REGISTERED":
+                        return({"rateLimit":False,"exists":True,"emailrecovery":None,"phoneNumber":None,"others":None})
+                except:
+                    return({"rateLimit":True,"exists":False,"emailrecovery":None,"phoneNumber":None,"others":None})
+        elif responseData["captcha_key"][0]=="captcha-required":
+            return({"rateLimit":False,"exists":False,"emailrecovery":None,"phoneNumber":None,"others":None})
+        else:
+            return({"rateLimit":True,"exists":False,"emailrecovery":None,"phoneNumber":None,"others":None})
+    except:
         return({"rateLimit":True,"exists":False,"emailrecovery":None,"phoneNumber":None,"others":None})
