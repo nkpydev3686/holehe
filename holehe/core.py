@@ -7,8 +7,13 @@ except:
     import http.cookiejar as cookielib
 
 from fake_useragent import UserAgent
+from tqdm import tqdm
+import argparse
+from termcolor import colored
+from threading import Thread
+import queue,time
 
-ua = UserAgent(verify_ssl=False)
+ua = UserAgent(verify_ssl=False,use_cache_server=False)
 
 def adobe(email):
     headers = {
@@ -472,3 +477,144 @@ def discord(email):
             return({"rateLimit":True,"exists":False,"emailrecovery":None,"phoneNumber":None,"others":None})
     except:
         return({"rateLimit":True,"exists":False,"emailrecovery":None,"phoneNumber":None,"others":None})
+
+def yahoo(email):
+    s = requests.session()
+    headers = {
+        'User-Agent': ua.firefox,
+        'Accept': '*/*',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'Origin': 'https://login.yahoo.com',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+    }
+    req = s.get("https://login.yahoo.com",headers=headers)
+
+    headers = {
+        'User-Agent': ua.firefox,
+        'Accept': '*/*',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'bucket': 'mbr-fe-merge-manage-account',
+        'X-Requested-With': 'XMLHttpRequest',
+        'Origin': 'https://login.yahoo.com',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+    }
+
+    params = (
+        ('.src', 'fpctx'),
+        ('.intl', 'ca'),
+        ('.lang', 'en-CA'),
+        ('.done', 'https://ca.yahoo.com'),
+    )
+    try:
+        data = {
+          'acrumb': req.text.split('<input type="hidden" name="acrumb" value="')[1].split('"')[0],
+          'sessionIndex': req.text.split('<input type="hidden" name="sessionIndex" value="')[1].split('"')[0],
+          'username': email,
+          'passwd': '',
+          'signin': 'Next',
+          'persistent': 'y'
+        }
+
+        response = s.post('https://login.yahoo.com/', headers=headers, params=params, data=data)
+        response=response.json()
+        if "error" in response.keys():
+            if response["error"]==False:
+                return({"rateLimit":False,"exists":True,"emailrecovery":None,"phoneNumber":None,"others":None})
+            else:
+                return({"rateLimit":True,"exists":False,"emailrecovery":None,"phoneNumber":None,"others":None})
+        elif "render" in response.keys():
+            if response["render"]["error"]=="messages.ERROR_INVALID_USERNAME":
+                return({"rateLimit":False,"exists":False,"emailrecovery":None,"phoneNumber":None,"others":None})
+            else:
+                return({"rateLimit":True,"exists":False,"emailrecovery":None,"phoneNumber":None,"others":None})
+        else:
+            return({"rateLimit":True,"exists":False,"emailrecovery":None,"phoneNumber":None,"others":None})
+    except:
+            return({"rateLimit":True,"exists":False,"emailrecovery":None,"phoneNumber":None,"others":None})
+def vrbo(email):
+    headers = {
+        'User-Agent': ua.firefox,
+        'Accept': '*/*',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Content-Type': 'application/json',
+        'x-homeaway-site': 'vrbo',
+        'Origin': 'https://www.vrbo.com',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+        'TE': 'Trailers',
+    }
+
+    data = '{"emailAddress":"'+email+'"}'
+
+    response = requests.post('https://www.vrbo.com/auth/aam/v3/status', headers=headers, data=data)
+    response=response.json()
+
+    if "authType" in response.keys():
+        if response["authType"][0]=="LOGIN_UMS":
+            return({"rateLimit":False,"exists":True,"emailrecovery":None,"phoneNumber":None,"others":None})
+        elif response["authType"][0]=="SIGNUP":
+            return({"rateLimit":False,"exists":False,"emailrecovery":None,"phoneNumber":None,"others":None})
+        else:
+            return({"rateLimit":True,"exists":False,"emailrecovery":None,"phoneNumber":None,"others":None})
+    else:
+        return({"rateLimit":True,"exists":False,"emailrecovery":None,"phoneNumber":None,"others":None})
+def main():
+    start_time = time.time()
+    parser = argparse.ArgumentParser(description="Github : https://github.com/megadose/holehe")
+    requiredNamed = parser.add_argument_group('required named arguments')
+    parser.add_argument("-e", "--email", help="Email of the target",required=True)
+    args = parser.parse_args()
+
+    def websiteName(WebsiteFunction,Websitename,email):
+        return({Websitename:WebsiteFunction(email)})
+
+    websites=[aboutme,adobe,amazon,discord,ebay,evernote,facebook,firefox,github,instagram,lastfm,lastpass,live,office365,pinterest,spotify,tumblr,twitter,vrbo,yahoo]
+
+    que = queue.Queue()
+    infos ={}
+    threads_list = []
+
+    for website in websites:
+        t = Thread(target=lambda q, arg1: q.put(websiteName(website,website.__name__,args.email)), args=(que, website))
+        t.start()
+        threads_list.append(t)
+
+    for t in tqdm(threads_list):
+        t.join()
+
+
+    while not que.empty():
+        result = que.get()
+        key, value = next(iter(result.items()))
+        infos[key]=value
+
+    description = colored("Email used","green")+","+colored(" Email not used","magenta")+","+colored(" Rate limit","red")
+    print("\033[H\033[J")
+    print("*"*25)
+    print(args.email)
+    print("*"*25)
+    for i in sorted(infos):
+        key, value = i,infos[i]
+        i = value
+        if i["rateLimit"]==True:
+            websiteprint=colored(key,"red")
+        elif i["exists"]==False :
+            websiteprint=colored(key,"magenta")
+        else:
+            toprint=""
+            if i["emailrecovery"]!= None:
+                toprint+=" "+i["emailrecovery"]
+            if i["phoneNumber"]!= None:
+                toprint+=" / "+i["phoneNumber"]
+            if i["others"]!= None:
+                toprint+=" / FullName "+i["others"]["FullName"]
+
+            websiteprint=colored(str(key)+toprint,"green")
+        print(websiteprint)
+
+    print("\n"+description)
+    print(str(len(websites))+" websites checked in "+str(round(time.time() - start_time,2))+ " seconds")
