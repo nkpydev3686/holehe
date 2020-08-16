@@ -47,6 +47,8 @@ print(apple("test@gmail.com"))
 - spotify
 - tumblr
 - twitter
+- vrbo
+- yahoo
 
 ## The output of the modules
 The result of the modules is in this form : `` {"rateLimit":False,"exists":True,"emailrecovery":ex****e@gmail.com,"phoneNumber":'0************78","others":None}``
