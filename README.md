@@ -11,7 +11,7 @@ holehe allows you to check if the mail is used on different sites like twitter, 
    [Python 2/3](https://www.python.org/downloads/release/python-370/)
 ## 🛠️ Installation
 ### With PyPI
-```pip3 install holehe```
+```pip3 install holehe==1.41```
 ### With Github
 ```bash
 git clone https://github.com/megadose/holehe.git
